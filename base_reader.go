@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"unsafe"
 )
 
@@ -12,7 +13,7 @@ func _U2I(u uint32) int32 {
 	return *((*int32)(unsafe.Pointer(&u)))
 }
 
-type DexReader interface {
+type BaseDalvikReader interface {
 	Byte() int8
 	Ubyte() uint8
 
@@ -30,18 +31,20 @@ type DexReader interface {
 	Uleb128_p1() uint32
 
 	Utf8String() string
+
+	Bytes([]byte) (int, error)
 }
 
-type dexReader struct {
+type baseDalvikReader struct {
 	*bytes.Reader
 	offset int
 }
 
-func New(b []byte) DexReader {
-	return &dexReader{bytes.NewReader(b), 0}
+func New(b []byte) BaseDalvikReader {
+	return &baseDalvikReader{bytes.NewReader(b), 0}
 }
 
-func (self *dexReader) Byte() int8 {
+func (self *baseDalvikReader) Byte() int8 {
 	b, err := self.ReadByte()
 	if err != nil {
 		panic(err)
@@ -50,7 +53,7 @@ func (self *dexReader) Byte() int8 {
 	return *((*int8)(unsafe.Pointer(&b)))
 }
 
-func (self *dexReader) Ubyte() uint8 {
+func (self *baseDalvikReader) Ubyte() uint8 {
 	b, err := self.ReadByte()
 	if err != nil {
 		panic(err)
@@ -59,7 +62,7 @@ func (self *dexReader) Ubyte() uint8 {
 	return b
 }
 
-func (self *dexReader) Ushort() uint16 {
+func (self *baseDalvikReader) Ushort() uint16 {
 	b1, err := self.ReadByte()
 	if err != nil {
 		panic(err)
@@ -73,37 +76,37 @@ func (self *dexReader) Ushort() uint16 {
 	return uint16(b1) | (uint16(b2) << 8)
 }
 
-func (self *dexReader) Short() int16 {
+func (self *baseDalvikReader) Short() int16 {
 	ushort := self.Ushort()
 	return *((*int16)(unsafe.Pointer(&ushort)))
 }
 
-func (self *dexReader) Uint() uint32 {
+func (self *baseDalvikReader) Uint() uint32 {
 	low := self.Ushort()
 	high := self.Ushort()
 
 	return uint32(low) | (uint32(high) << 16)
 }
 
-func (self *dexReader) Int() int32 {
+func (self *baseDalvikReader) Int() int32 {
 	i := self.Uint()
 	return *((*int32)(unsafe.Pointer(&i)))
 }
 
-func (self *dexReader) Ulong() uint64 {
+func (self *baseDalvikReader) Ulong() uint64 {
 	low := self.Uint()
 	high := self.Uint()
 
 	return uint64(low) | (uint64(high) << 32)
 }
 
-func (self *dexReader) Long() int64 {
+func (self *baseDalvikReader) Long() int64 {
 	l := self.Ulong()
 
 	return *((*int64)(unsafe.Pointer(&l)))
 }
 
-func (self *dexReader) Sleb128() int32 {
+func (self *baseDalvikReader) Sleb128() int32 {
 	var r int32
 	var v byte
 
@@ -141,7 +144,7 @@ func (self *dexReader) Sleb128() int32 {
 	return r
 }
 
-func (self *dexReader) Uleb128() uint32 {
+func (self *baseDalvikReader) Uleb128() uint32 {
 	var r uint32
 	var v byte
 
@@ -171,11 +174,11 @@ func (self *dexReader) Uleb128() uint32 {
 	return r
 }
 
-func (self *dexReader) Uleb128_p1() uint32 {
+func (self *baseDalvikReader) Uleb128_p1() uint32 {
 	return self.Uleb128() - 1
 }
 
-func (self *dexReader) Utf8String() string {
+func (self *baseDalvikReader) Utf8String() string {
 	var r []rune
 
 	var ch rune
@@ -203,4 +206,8 @@ func (self *dexReader) Utf8String() string {
 	}
 
 	return string(r)
+}
+
+func (self *baseDalvikReader) Bytes(b []byte) (int, error) {
+	return io.ReadFull(self, b)
 }
