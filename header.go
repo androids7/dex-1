@@ -2,13 +2,14 @@
 package dex
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 )
 
 var MAGIC = [8]byte{0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00}
 
 type Header struct {
-	magic       [8]byte
 	checksum    uint32
 	signature   [20]byte
 	file_size   uint32
@@ -42,15 +43,55 @@ type Header struct {
 	data_off  uint32
 }
 
+func (self *Header) String() string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintln(buf, "DEX FILE HEADER:")
+	fmt.Fprintf(buf, "\tMAGIC: %x\n", MAGIC)
+	fmt.Fprintf(buf, "\tchecksum: %d\n", self.checksum)
+	fmt.Fprintf(buf, "\tsignature: %x\n", self.signature)
+	fmt.Fprintf(buf, "\tfile_size: %d\n", self.file_size)
+	fmt.Fprintf(buf, "\theader_size: %d\n", self.header_size)
+	fmt.Fprintf(buf, "\tendian_tag: %d\n", self.endian_tag)
+
+	fmt.Fprintf(buf, "\tlink_size: %d\n", self.link_size)
+	fmt.Fprintf(buf, "\tlink_off: %d\n", self.link_off)
+
+	fmt.Fprintf(buf, "\tmap_off: %d\n", self.map_off)
+
+	fmt.Fprintf(buf, "\tstring_ids_size: %d\n", self.string_ids_size)
+	fmt.Fprintf(buf, "\tstring_ids_off: %d\n", self.string_ids_off)
+
+	fmt.Fprintf(buf, "\ttype_ids_size: %d\n", self.type_ids_size)
+	fmt.Fprintf(buf, "\ttype_ids_off: %d\n", self.type_ids_off)
+
+	fmt.Fprintf(buf, "\tproto_ids_size: %d\n", self.proto_ids_size)
+	fmt.Fprintf(buf, "\tproto_ids_off: %d\n", self.proto_ids_off)
+
+	fmt.Fprintf(buf, "\tfield_ids_size: %d\n", self.field_ids_size)
+	fmt.Fprintf(buf, "\tfield_ids_off: %d\n", self.field_ids_off)
+
+	fmt.Fprintf(buf, "\tmethod_ids_size: %d\n", self.method_ids_size)
+	fmt.Fprintf(buf, "\tmethod_ids_off: %d\n", self.method_ids_off)
+
+	fmt.Fprintf(buf, "\tclass_defs_size: %d\n", self.class_defs_size)
+	fmt.Fprintf(buf, "\tclass_defs_off: %d\n", self.class_defs_off)
+
+	fmt.Fprintf(buf, "\tdata_size: %d\n", self.data_size)
+	fmt.Fprintf(buf, "\tdata_off: %d", self.data_off)
+
+	return buf.String()
+}
+
 func readHeader(r BaseDalvikReader) *Header {
 	h := new(Header)
 
-	_, err := r.Bytes(h.magic[:])
+	var magic [8]byte
+	_, err := r.Bytes(magic[:])
 	if err != nil {
 		panic(err)
 	}
 
-	if h.magic != MAGIC {
+	if magic != MAGIC {
 		panic(errors.New("Not MAGIC ahead of file"))
 	}
 

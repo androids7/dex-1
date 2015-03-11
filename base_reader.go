@@ -33,6 +33,8 @@ type BaseDalvikReader interface {
 	Utf8String() string
 
 	Bytes([]byte) (int, error)
+
+	Offset() int
 }
 
 type baseDalvikReader struct {
@@ -40,7 +42,7 @@ type baseDalvikReader struct {
 	offset int
 }
 
-func New(b []byte) BaseDalvikReader {
+func NewBaseDalvikReader(b []byte) BaseDalvikReader {
 	return &baseDalvikReader{bytes.NewReader(b), 0}
 }
 
@@ -49,6 +51,7 @@ func (self *baseDalvikReader) Byte() int8 {
 	if err != nil {
 		panic(err)
 	}
+	self.offset++
 
 	return *((*int8)(unsafe.Pointer(&b)))
 }
@@ -58,6 +61,7 @@ func (self *baseDalvikReader) Ubyte() uint8 {
 	if err != nil {
 		panic(err)
 	}
+	self.offset++
 
 	return b
 }
@@ -67,11 +71,13 @@ func (self *baseDalvikReader) Ushort() uint16 {
 	if err != nil {
 		panic(err)
 	}
+	self.offset++
 
 	b2, err := self.ReadByte()
 	if err != nil {
 		panic(err)
 	}
+	self.offset++
 
 	return uint16(b1) | (uint16(b2) << 8)
 }
@@ -209,5 +215,13 @@ func (self *baseDalvikReader) Utf8String() string {
 }
 
 func (self *baseDalvikReader) Bytes(b []byte) (int, error) {
-	return io.ReadFull(self, b)
+	n, err := io.ReadFull(self, b)
+	if n > 0 {
+		self.offset += n
+	}
+	return n, err
+}
+
+func (self *baseDalvikReader) Offset() int {
+	return self.offset
 }
