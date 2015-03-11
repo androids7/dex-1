@@ -51,7 +51,7 @@ func (self *Header) String() string {
 	fmt.Fprintf(buf, "\tsignature: %x\n", self.signature)
 	fmt.Fprintf(buf, "\tfile_size: %d\n", self.file_size)
 	fmt.Fprintf(buf, "\theader_size: %d\n", self.header_size)
-	fmt.Fprintf(buf, "\tendian_tag: %d\n", self.endian_tag)
+	fmt.Fprintf(buf, "\tendian_tag: %x\n", self.endian_tag)
 
 	fmt.Fprintf(buf, "\tlink_size: %d\n", self.link_size)
 	fmt.Fprintf(buf, "\tlink_off: %d\n", self.link_off)

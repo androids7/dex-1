@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"unicode/utf16"
 	"unsafe"
 )
 
@@ -13,7 +14,13 @@ func _U2I(u uint32) int32 {
 	return *((*int32)(unsafe.Pointer(&u)))
 }
 
+func _B2Uint16(b byte) uint16 {
+	return uint16(b)
+}
+
 type BaseDalvikReader interface {
+	io.Seeker
+
 	Byte() int8
 	Ubyte() uint8
 
@@ -30,16 +37,16 @@ type BaseDalvikReader interface {
 	Uleb128() uint32
 	Uleb128_p1() uint32
 
-	Utf8String() string
+	Utf8String() (string, int)
 
 	Bytes([]byte) (int, error)
 
-	Offset() int
+	Offset() int64
 }
 
 type baseDalvikReader struct {
 	*bytes.Reader
-	offset int
+	offset int64
 }
 
 func NewBaseDalvikReader(b []byte) BaseDalvikReader {
@@ -184,44 +191,72 @@ func (self *baseDalvikReader) Uleb128_p1() uint32 {
 	return self.Uleb128() - 1
 }
 
-func (self *baseDalvikReader) Utf8String() string {
-	var r []rune
+func (self *baseDalvikReader) Utf8String() (string, int) {
+	var r []uint16
 
-	var ch rune
-	var c, v byte
+	var c, v uint16
 
-	for c = self.Ubyte(); c != 0; c = self.Ubyte() {
-		if (c & 0x80) == 0x80 {
+	for c = _B2Uint16(self.Ubyte()); c != 0; c = _B2Uint16(self.Ubyte()) {
+		if (c & 0x80) == 0x80 { // 字节最高位为 1
 			if (c & 0xe0) == 0xc0 {
 				c &= 0x1f
-				v = self.Ubyte() & 0x3f
-				ch = rune(c<<6) | rune(v)
+				v = _B2Uint16(self.Ubyte()) & 0x3f
+				c = c<<6 | v
 			} else if (c & 0xf0) == 0xe0 {
-				v = self.Ubyte() & 0x3f
-				ch = rune(c<<6) | rune(v)
-				v = self.Ubyte() & 0x3f
-				ch = ch<<6 | rune(v)
+				v = _B2Uint16(self.Ubyte()) & 0x3f
+				c = c<<6 | v
+				v = _B2Uint16(self.Ubyte()) & 0x3f
+				c = c<<6 | v
 			} else {
 				panic(fmt.Errorf("Bad (point 4) UTF 8 %b", c))
 			}
-		} else {
-			ch = rune(c)
 		}
 
-		r = append(r, ch)
+		r = append(r, c)
 	}
 
-	return string(r)
+	return string(utf16.Decode(r)), len(r)
 }
+
+//func (self *baseDalvikReader) Utf8StringDebug() (string, int) {
+//	var r []uint16
+
+//	var c, v uint16
+
+//	for c = _B2Uint16(self.Ubyte()); c != 0; c = _B2Uint16(self.Ubyte()) {
+//		if (c & 0x80) == 0x80 { // 字节最高位为 1
+//			if (c & 0xe0) == 0xc0 {
+//				c &= 0x1f
+//				v = _B2Uint16(self.Ubyte()) & 0x3f
+//				c = c<<6 | v
+//			} else if (c & 0xf0) == 0xe0 {
+//				v = _B2Uint16(self.Ubyte()) & 0x3f
+//				c = c<<6 | v
+//				v = _B2Uint16(self.Ubyte()) & 0x3f
+//				c = c<<6 | v
+//			} else {
+//				panic(fmt.Errorf("Bad (point 4) UTF 8 %b", c))
+//			}
+//		}
+
+//		if r != nil {
+//			fmt.Printf(", ")
+//		}
+//		fmt.Printf("%d", c)
+//		r = append(r, c)
+//	}
+
+//	return string(utf16.Decode(r)), len(r)
+//}
 
 func (self *baseDalvikReader) Bytes(b []byte) (int, error) {
 	n, err := io.ReadFull(self, b)
 	if n > 0 {
-		self.offset += n
+		self.offset += int64(n)
 	}
 	return n, err
 }
 
-func (self *baseDalvikReader) Offset() int {
+func (self *baseDalvikReader) Offset() int64 {
 	return self.offset
 }
