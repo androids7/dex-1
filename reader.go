@@ -20,9 +20,11 @@ type dexReader struct {
 	BaseDalvikReader
 	*Header
 
-	string_data_items []string_data_item
-	type_items        []string
-	proto_items       []proto_item
+	string_items []string_item
+	type_items   []string
+	proto_items  []proto_item
+	field_items  []field_item
+	method_items []method_item
 }
 
 func NewDexReader(b []byte, flag Flag) DexReader {
@@ -56,14 +58,16 @@ func (self *dexReader) parseDetail() {
 	self.parseStringItems()
 	self.parseTypeItems()
 	self.parseProtoItems()
+	self.parseFieldItems()
+	self.parseMethodItems()
 }
 
 func (self *dexReader) parseStringItems() {
 	// parse string_data_item
 	if self.string_ids_size > 0 {
 		size := self.string_ids_size
-		self.string_data_items = make([]string_data_item, 0, size)
-		var item string_data_item
+		self.string_items = make([]string_item, 0, size)
+		var item string_item
 		var stringSize int
 		var err error
 
@@ -81,7 +85,7 @@ func (self *dexReader) parseStringItems() {
 			item.utf16_size = self.Uleb128()
 			item.data, stringSize = self.Utf8String()
 
-			self.string_data_items = append(self.string_data_items, item)
+			self.string_items = append(self.string_items, item)
 
 			// TODO 比较 item.utf16_size 和 stringSize 是否相同？
 			_ = stringSize
@@ -100,7 +104,7 @@ func (self *dexReader) parseTypeItems() {
 		self.type_items = make([]string, 0, size)
 		for i := uint32(0); i < size; i++ {
 			self.type_items = append(self.type_items,
-				self.string_data_items[self.Uint()].data)
+				self.string_items[self.Uint()].data)
 		}
 	}
 }
@@ -118,7 +122,7 @@ func (self *dexReader) parseProtoItems() {
 				panic(err)
 			}
 
-			self.proto_items[i].shorty_desc = self.string_data_items[self.Uint()].data
+			self.proto_items[i].shorty_desc = self.string_items[self.Uint()].data
 			self.proto_items[i].return_type = self.type_items[self.Uint()]
 
 			params_off = self.Uint()
@@ -136,6 +140,42 @@ func (self *dexReader) parseProtoItems() {
 				self.proto_items[i].param_types = append(self.proto_items[i].param_types,
 					self.type_items[self.Ushort()])
 			}
+		}
+	}
+}
+
+func (self *dexReader) parseFieldItems() {
+	if self.field_ids_size > 0 {
+		_, err := self.Seek(int64(self.field_ids_off), 0)
+		if err != nil {
+			panic(err)
+		}
+
+		size := self.field_ids_size
+		self.field_items = make([]field_item, size)
+
+		for i := uint32(0); i < size; i++ {
+			self.field_items[i].class = self.type_items[self.Ushort()]
+			self.field_items[i].type_name = self.type_items[self.Ushort()]
+			self.field_items[i].name = self.string_items[self.Uint()].data
+		}
+	}
+}
+
+func (self *dexReader) parseMethodItems() {
+	if self.method_ids_size > 0 {
+		_, err := self.Seek(int64(self.method_ids_off), 0)
+		if err != nil {
+			panic(err)
+		}
+
+		size := self.method_ids_size
+		self.method_items = make([]method_item, size)
+
+		for i := uint32(0); i < size; i++ {
+			self.method_items[i].class = self.type_items[self.Ushort()]
+			self.method_items[i].proto = self.proto_items[self.Ushort()]
+			self.method_items[i].name = self.string_items[self.Uint()].data
 		}
 	}
 }

@@ -32,7 +32,7 @@ func TestStringItems(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i, item := range r.(*dexReader).string_data_items {
+	for i, item := range r.(*dexReader).string_items {
 		t.Log(i, item.data)
 	}
 }
@@ -67,6 +67,40 @@ func TestProtoItems(t *testing.T) {
 	}
 
 	for i, item := range r.(*dexReader).proto_items {
+		t.Log(i, item)
+	}
+}
+
+func TestFieldItems(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal(e)
+		}
+	}()
+
+	r, err := NewDexFileReader("test_data/bm_classes.dex", DETAIL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, item := range r.(*dexReader).field_items {
+		t.Log(i, item)
+	}
+}
+
+func TestMethodItems(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal(e)
+		}
+	}()
+
+	r, err := NewDexFileReader("test_data/bm_classes.dex", DETAIL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, item := range r.(*dexReader).method_items {
 		t.Log(i, item)
 	}
 }
