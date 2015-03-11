@@ -61,36 +61,31 @@ func (self *dexReader) parseDetail() {
 func (self *dexReader) parseStringItems() {
 	// parse string_data_item
 	if self.string_ids_size > 0 {
-		_, err := self.Seek(int64(self.string_ids_off), 0)
-		if err != nil {
-			panic(err)
-		}
-
-		// fill string_id_items
 		size := self.string_ids_size
-		// 优化
-		string_id_items := make([]uint32, 0, size)
 		self.string_data_items = make([]string_data_item, 0, size)
-		for i := uint32(0); i < size; i++ {
-			string_id_items = append(string_id_items, self.Uint())
-		} // end fill string_id_items
+		var item string_data_item
+		var stringSize int
+		var err error
 
-		// fill string_data_items
-		for _, off := range string_id_items {
-			_, err = self.Seek(int64(off), 0)
+		for i := uint32(0); i < size; i++ {
+			_, err = self.Seek(int64(self.string_ids_off+i*4), 0)
 			if err != nil {
 				panic(err)
 			}
 
-			var item string_data_item
-			var stringSize int
+			_, err = self.Seek(int64(self.Uint()), 0)
+			if err != nil {
+				panic(err)
+			}
+
 			item.utf16_size = self.Uleb128()
 			item.data, stringSize = self.Utf8String()
 
 			self.string_data_items = append(self.string_data_items, item)
 
+			// TODO 比较 item.utf16_size 和 stringSize 是否相同？
 			_ = stringSize
-		} // end fill string_data_items
+		}
 	}
 }
 
