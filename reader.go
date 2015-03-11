@@ -20,8 +20,8 @@ type dexReader struct {
 	BaseDalvikReader
 	*Header
 
-	string_id_items   []uint32
 	string_data_items []string_data_item
+	type_items        []string
 }
 
 func NewDexReader(b []byte, flag Flag) DexReader {
@@ -53,27 +53,28 @@ func (self *dexReader) BaseReader() BaseDalvikReader {
 
 func (self *dexReader) parseDetail() {
 	self.parseStringItems()
+	self.parseTypeItems()
 }
 
 func (self *dexReader) parseStringItems() {
 	// parse string_data_item
-	if self.Header.string_ids_size > 0 {
-		_, err := self.Seek(int64(self.Header.string_ids_off), 0)
+	if self.string_ids_size > 0 {
+		_, err := self.Seek(int64(self.string_ids_off), 0)
 		if err != nil {
 			panic(err)
 		}
 
 		// fill string_id_items
-		size := self.Header.string_ids_size
+		size := self.string_ids_size
 		// 优化
-		self.string_id_items = make([]uint32, 0, size)
+		string_id_items := make([]uint32, 0, size)
 		self.string_data_items = make([]string_data_item, 0, size)
 		for i := uint32(0); i < size; i++ {
-			self.string_id_items = append(self.string_id_items, self.Uint())
+			string_id_items = append(string_id_items, self.Uint())
 		} // end fill string_id_items
 
 		// fill string_data_items
-		for _, off := range self.string_id_items {
+		for _, off := range string_id_items {
 			_, err = self.Seek(int64(off), 0)
 			if err != nil {
 				panic(err)
@@ -88,5 +89,21 @@ func (self *dexReader) parseStringItems() {
 
 			_ = stringSize
 		} // end fill string_data_items
+	}
+}
+
+func (self *dexReader) parseTypeItems() {
+	if self.type_ids_size > 0 {
+		_, err := self.Seek(int64(self.type_ids_off), 0)
+		if err != nil {
+			panic(err)
+		}
+
+		size := self.type_ids_size
+		self.type_items = make([]string, 0, size)
+		for i := uint32(0); i < size; i++ {
+			self.type_items = append(self.type_items,
+				self.string_data_items[self.Uint()].data)
+		}
 	}
 }
