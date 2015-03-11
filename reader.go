@@ -22,6 +22,7 @@ type dexReader struct {
 
 	string_data_items []string_data_item
 	type_items        []string
+	proto_items       []proto_item
 }
 
 func NewDexReader(b []byte, flag Flag) DexReader {
@@ -54,6 +55,7 @@ func (self *dexReader) BaseReader() BaseDalvikReader {
 func (self *dexReader) parseDetail() {
 	self.parseStringItems()
 	self.parseTypeItems()
+	self.parseProtoItems()
 }
 
 func (self *dexReader) parseStringItems() {
@@ -104,6 +106,41 @@ func (self *dexReader) parseTypeItems() {
 		for i := uint32(0); i < size; i++ {
 			self.type_items = append(self.type_items,
 				self.string_data_items[self.Uint()].data)
+		}
+	}
+}
+
+func (self *dexReader) parseProtoItems() {
+	if self.proto_ids_size > 0 {
+		size := self.proto_ids_size
+		self.proto_items = make([]proto_item, size)
+		var params_size uint32
+		var params_off uint32
+
+		for i := uint32(0); i < size; i++ {
+			_, err := self.Seek(int64(self.proto_ids_off+i*12), 0)
+			if err != nil {
+				panic(err)
+			}
+
+			self.proto_items[i].shorty_desc = self.string_data_items[self.Uint()].data
+			self.proto_items[i].return_type = self.type_items[self.Uint()]
+
+			params_off = self.Uint()
+			if params_off == 0 {
+				continue
+			}
+
+			_, err = self.Seek(int64(params_off), 0)
+			if err != nil {
+				panic(err)
+			}
+
+			params_size = self.Uint()
+			for j := uint32(0); j < params_size; j++ {
+				self.proto_items[i].param_types = append(self.proto_items[i].param_types,
+					self.type_items[self.Ushort()])
+			}
 		}
 	}
 }
