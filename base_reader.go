@@ -19,7 +19,7 @@ func _B2Uint16(b byte) uint16 {
 }
 
 type BaseDalvikReader interface {
-	io.Seeker
+	io.ReadSeeker
 
 	Byte() int8
 	Ubyte() uint8

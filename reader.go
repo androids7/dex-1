@@ -1,7 +1,10 @@
 // reader
 package dex
 
-import "io/ioutil"
+import (
+	"encoding/binary"
+	"io/ioutil"
+)
 
 type Flag int
 
@@ -20,6 +23,8 @@ type dexReader struct {
 	BaseDalvikReader
 	*Header
 
+	order binary.ByteOrder
+
 	string_items []string_item
 	type_items   []string
 	proto_items  []proto_item
@@ -29,12 +34,41 @@ type dexReader struct {
 
 func NewDexReader(b []byte, flag Flag) DexReader {
 	r := &dexReader{BaseDalvikReader: NewBaseDalvikReader(b)}
-	r.Header = readHeader(r.BaseDalvikReader)
+	r.readHeader()
 
 	if (flag & DETAIL) != 0 {
 		r.parseDetail()
 	}
 	return r
+}
+
+func (self *dexReader) readHeader() {
+	_, err := self.Seek(32, 0)
+	if err != nil {
+		panic(err)
+	}
+
+	var n uint32
+	err = binary.Read(self, binary.LittleEndian, &n)
+	if err != nil {
+		panic(err)
+	}
+
+	if n == ENDIAN_CONSTANT {
+		self.order = binary.LittleEndian
+	} else {
+		self.order = binary.BigEndian
+	}
+
+	self.Header = new(Header)
+	_, err = self.Seek(0, 0)
+	if err != nil {
+		panic(err)
+	}
+	err = binary.Read(self.BaseDalvikReader, binary.LittleEndian, self.Header)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func NewDexFileReader(filename string, flag Flag) (DexReader, error) {
@@ -64,15 +98,15 @@ func (self *dexReader) parseDetail() {
 
 func (self *dexReader) parseStringItems() {
 	// parse string_data_item
-	if self.string_ids_size > 0 {
-		size := self.string_ids_size
+	if self.String_ids_size > 0 {
+		size := self.String_ids_size
 		self.string_items = make([]string_item, 0, size)
 		var item string_item
 		var stringSize int
 		var err error
 
 		for i := uint32(0); i < size; i++ {
-			_, err = self.Seek(int64(self.string_ids_off+i*4), 0)
+			_, err = self.Seek(int64(self.String_ids_off+i*4), 0)
 			if err != nil {
 				panic(err)
 			}
@@ -94,13 +128,13 @@ func (self *dexReader) parseStringItems() {
 }
 
 func (self *dexReader) parseTypeItems() {
-	if self.type_ids_size > 0 {
-		_, err := self.Seek(int64(self.type_ids_off), 0)
+	if self.Type_ids_size > 0 {
+		_, err := self.Seek(int64(self.Type_ids_off), 0)
 		if err != nil {
 			panic(err)
 		}
 
-		size := self.type_ids_size
+		size := self.Type_ids_size
 		self.type_items = make([]string, 0, size)
 		for i := uint32(0); i < size; i++ {
 			self.type_items = append(self.type_items,
@@ -110,14 +144,14 @@ func (self *dexReader) parseTypeItems() {
 }
 
 func (self *dexReader) parseProtoItems() {
-	if self.proto_ids_size > 0 {
-		size := self.proto_ids_size
+	if self.Proto_ids_size > 0 {
+		size := self.Proto_ids_size
 		self.proto_items = make([]proto_item, size)
 		var params_size uint32
 		var params_off uint32
 
 		for i := uint32(0); i < size; i++ {
-			_, err := self.Seek(int64(self.proto_ids_off+i*12), 0)
+			_, err := self.Seek(int64(self.Proto_ids_off+i*12), 0)
 			if err != nil {
 				panic(err)
 			}
@@ -145,13 +179,13 @@ func (self *dexReader) parseProtoItems() {
 }
 
 func (self *dexReader) parseFieldItems() {
-	if self.field_ids_size > 0 {
-		_, err := self.Seek(int64(self.field_ids_off), 0)
+	if self.Field_ids_size > 0 {
+		_, err := self.Seek(int64(self.Field_ids_off), 0)
 		if err != nil {
 			panic(err)
 		}
 
-		size := self.field_ids_size
+		size := self.Field_ids_size
 		self.field_items = make([]field_item, size)
 
 		for i := uint32(0); i < size; i++ {
@@ -163,13 +197,13 @@ func (self *dexReader) parseFieldItems() {
 }
 
 func (self *dexReader) parseMethodItems() {
-	if self.method_ids_size > 0 {
-		_, err := self.Seek(int64(self.method_ids_off), 0)
+	if self.Method_ids_size > 0 {
+		_, err := self.Seek(int64(self.Method_ids_off), 0)
 		if err != nil {
 			panic(err)
 		}
 
-		size := self.method_ids_size
+		size := self.Method_ids_size
 		self.method_items = make([]method_item, size)
 
 		for i := uint32(0); i < size; i++ {
